@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Расширение Цвет",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Меняет цвета и шрифты страниц: пресеты, рандом, тёмный/светлый режим, экспорт стилей и карнавал.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],

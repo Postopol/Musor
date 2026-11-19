@@ -10,6 +10,23 @@
   let autoEnabled = false;
   let explicitReset = false;
   let carnivalTimer = null;
+  let mediaFilter = 'auto';
+
+  // медиа-элементы и всё внутри плееров не закрашиваем фоном — иначе видео блочится
+  const MEDIA_EXEMPT =
+    'img,video,picture,canvas,svg,iframe,embed,object,' +
+    '*:has(video),*:has(video) *,' +
+    '*:has(iframe),*:has(iframe) *,' +
+    '*:has(canvas),*:has(canvas) *' +
+    '{background-color:transparent !important}\n';
+
+  const MEDIA_EL = 'img,video,picture,canvas,svg,iframe';
+  const MEDIA_FILTERS = {
+    invert: 'invert(1)',
+    sepia: 'sepia(.8)',
+    grayscale: 'grayscale(1)',
+    hue: 'hue-rotate(90deg) saturate(1.8)'
+  };
 
   function getSheet() {
     if (sheet) return sheet;
@@ -35,7 +52,11 @@
     let css = '';
     if (r.colorScheme) css += 'html{color-scheme:' + r.colorScheme + ' !important}\n';
     if (r.filter) css += 'html{filter:' + r.filter + ' !important}\n';
-    if (r.imgFilter) css += 'img,video,picture,canvas,svg,iframe{filter:' + r.imgFilter + ' !important}\n';
+
+    // фильтр для медиа: либо отдельный (опция), либо контр-фильтр из стиля
+    const mf = MEDIA_FILTERS[mediaFilter];
+    if (mf) css += MEDIA_EL + '{filter:' + mf + ' !important}\n';
+    else if (r.imgFilter) css += 'img,video,picture,canvas,svg,iframe{filter:' + r.imgFilter + ' !important}\n';
     if (r.htmlFontSize) css += 'html{font-size:' + r.htmlFontSize + ' !important}\n';
 
     const fd = [];
@@ -55,6 +76,8 @@
     if (r.textTransform) css += '*{text-transform:' + r.textTransform + ' !important}\n';
     if (r.borderRadius) css += '*{border-radius:' + r.borderRadius + ' !important}\n';
     if (r.extraCss) css += r.extraCss + '\n';
+    // защита медиа-зон — в самом конце, поверх всех заливок
+    if (r.bg) css += MEDIA_EXEMPT;
     return css;
   }
 
@@ -119,18 +142,29 @@
         applyCfg(null);
       }
       sendResponse({ ok: true });
+    } else if (msg.type === 'setMedia') {
+      mediaFilter = typeof msg.value === 'string' && MEDIA_FILTERS[msg.value] ? msg.value : 'auto';
+      if (carnivalTimer) {
+        // карнавал сам подхватит новый фильтр на следующем тике
+      } else if (hostCfg && hostCfg.name !== 'carnival') {
+        applyCfg(hostCfg);
+      } else if (autoEnabled) {
+        applyCfg(autoCfg());
+      } else {
+        applyCfg(null);
+      }
+      sendResponse({ ok: true });
     }
   });
 
   // --- восстановление при загрузке страницы ---
 
   const host = location.hostname || 'local-file';
-  Promise.all([
-    chrome.storage.local.get('host:' + host),
-    chrome.storage.local.get('settings')
-  ]).then(([hostRes, setRes]) => {
-    hostCfg = hostRes['host:' + host] || null;
-    autoEnabled = !!(setRes.settings && setRes.settings.autoDayNight);
+  chrome.storage.local.get(['host:' + host, 'settings']).then((res) => {
+    hostCfg = res['host:' + host] || null;
+    const s = res.settings || {};
+    autoEnabled = !!s.autoDayNight;
+    mediaFilter = s.mediaFilter || 'auto';
     if (hostCfg) {
       if (hostCfg.name === 'carnival') startCarnival();
       else applyCfg(hostCfg);

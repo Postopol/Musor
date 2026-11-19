@@ -8,6 +8,7 @@ const restoreEl = document.getElementById('restorePresets');
 const importCodeEl = document.getElementById('importCode');
 const sitesListEl = document.getElementById('sitesList');
 const autoDnEl = document.getElementById('autoDN');
+const mediaFilterEl = document.getElementById('mediaFilter');
 
 let currentCfg = null;
 
@@ -66,15 +67,24 @@ MODES.forEach((m) => {
   modesEl.appendChild(b);
 });
 
-// --- авто день/ночь ---
+// --- авто день/ночь и фильтр медиа ---
 
 chrome.storage.local.get('settings').then((r) => {
-  autoDnEl.checked = !!(r.settings && r.settings.autoDayNight);
+  const s = r.settings || {};
+  autoDnEl.checked = !!s.autoDayNight;
+  mediaFilterEl.value = s.mediaFilter || 'auto';
 }).catch(() => {});
+
+function saveSetting(patch) {
+  return chrome.storage.local.get('settings').then((r) => {
+    const s = Object.assign({}, r.settings, patch);
+    return chrome.storage.local.set({ settings: s });
+  });
+}
 
 autoDnEl.addEventListener('change', () => {
   const on = autoDnEl.checked;
-  chrome.storage.local.set({ settings: { autoDayNight: on } });
+  saveSetting({ autoDayNight: on });
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs[0];
     if (tab && tab.url && /^(https?|file):/.test(tab.url)) {
@@ -82,6 +92,20 @@ autoDnEl.addEventListener('change', () => {
     }
   });
   statusEl.textContent = on ? 'Авто день/ночь: вкл (тёмный после 19:00)' : 'Авто день/ночь: выкл';
+});
+
+const MEDIA_LABELS = { auto: 'как в стиле', invert: 'инверсия', sepia: 'сепия', grayscale: 'ч/б', hue: 'психоделика' };
+
+mediaFilterEl.addEventListener('change', () => {
+  const v = mediaFilterEl.value;
+  saveSetting({ mediaFilter: v });
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs[0];
+    if (tab && tab.url && /^(https?|file):/.test(tab.url)) {
+      CVET.sendToTab(tab, { type: 'setMedia', value: v });
+    }
+  });
+  statusEl.textContent = 'Медиа: ' + (MEDIA_LABELS[v] || v);
 });
 
 // --- пресеты с удалением и восстановлением ---
