@@ -22,6 +22,20 @@ curl -fsSL https://git.lab.ai-hr.kz/APA-AI-LAB/POLEZNYI-MUSOR/raw/branch/main/in
 
 Или просто скачать архив: [main.zip](https://git.lab.ai-hr.kz/APA-AI-LAB/POLEZNYI-MUSOR/archive/main.zip)
 
+## Обновление одной командой
+
+```bash
+curl -fsSL https://git.lab.ai-hr.kz/APA-AI-LAB/POLEZNYI-MUSOR/raw/branch/main/update.sh | bash
+```
+
+Обновит расширение в `~/расширение-цвет` до последней версии с `main`. Свой путь:
+
+```bash
+curl -fsSL https://git.lab.ai-hr.kz/APA-AI-LAB/POLEZNYI-MUSOR/raw/branch/main/update.sh | bash -s -- /свой/путь
+```
+
+После обновления нажми «Обновить» на `chrome://extensions` (или перезапусти браузер).
+
 ## Установка руками
 
 1. Скачай и распакуй репу
