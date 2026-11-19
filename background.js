@@ -2,7 +2,7 @@
 // Firefox: common.js уже подключён в manifest (background.scripts).
 if (typeof importScripts === 'function') importScripts('common.js');
 
-// горячие клавиши: Alt+R — рандом, Alt+Shift+D — сброс
+// горячие клавиши: Alt+R — рандом, Alt+X — сброс
 chrome.commands.onCommand.addListener(async (command) => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
