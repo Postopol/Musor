@@ -1,4 +1,6 @@
-importScripts('common.js');
+// Chrome/Safari: service worker подтягивает общий модуль сам.
+// Firefox: common.js уже подключён в manifest (background.scripts).
+if (typeof importScripts === 'function') importScripts('common.js');
 
 // горячие клавиши: Alt+R — рандом, Alt+D — сброс
 chrome.commands.onCommand.addListener(async (command) => {

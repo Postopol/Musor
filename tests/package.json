@@ -1,0 +1,13 @@
+{
+  "name": "rashirenie-cvet-tests",
+  "private": true,
+  "type": "module",
+  "description": "Автотесты расширения «Расширение Цвет» в настоящем Chromium",
+  "scripts": {
+    "test": "node run.mjs",
+    "test:youtube": "node youtube.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.57.0"
+  }
+}

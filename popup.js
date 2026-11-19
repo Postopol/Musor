@@ -26,12 +26,10 @@ const ICONS = {
   trash: '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>'
 };
 
+// DOMParser, а не innerHTML: линтер магазина Firefox (web-ext lint) ругается на innerHTML
 function icon(name) {
-  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  s.setAttribute('viewBox', '0 0 24 24');
-  s.setAttribute('aria-hidden', 'true');
-  s.innerHTML = ICONS[name];
-  return s;
+  const xml = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">' + ICONS[name] + '</svg>';
+  return document.importNode(new DOMParser().parseFromString(xml, 'image/svg+xml').documentElement, true);
 }
 
 function iconButton(name, label, extraClass) {
@@ -87,6 +85,21 @@ function cfgLabel(cfg, saved) {
   if (mode) return mode.full;
   const known = PRESETS.find((x) => x.id === n);
   return known ? known.label : n;
+}
+
+// --- доступ к сайтам ---
+// Firefox и Safari могут не выдать доступ ко всем сайтам при установке.
+// Тогда показываем плашку с кнопкой. request() зовём сразу в клике — иначе браузер откажет.
+
+const ALL_SITES = { origins: ['<all_urls>'] };
+if (chrome.permissions && chrome.permissions.contains) {
+  chrome.permissions.contains(ALL_SITES).then((ok) => { $('perm').hidden = ok; }).catch(() => {});
+  $('permBtn').addEventListener('click', () => {
+    chrome.permissions.request(ALL_SITES).then((ok) => {
+      $('perm').hidden = ok;
+      if (ok) toast('Готово. Обнови страницу, чтобы стиль применился');
+    }).catch(() => toast('Не получилось запросить доступ'));
+  });
 }
 
 // --- активная вкладка ---
