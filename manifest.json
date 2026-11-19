@@ -14,7 +14,7 @@
       "description": "Случайный стиль для страницы"
     },
     "reset": {
-      "suggested_key": { "default": "Alt+X" },
+      "suggested_key": { "default": "Alt+Shift+R" },
       "description": "Сбросить стиль страницы"
     }
   },
