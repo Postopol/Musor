@@ -5,54 +5,93 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <h1><span class="dot"></span>Расширение Цвет <span class="ver" id="ver"></span></h1>
+  <header class="top">
+    <h1><span class="dot" aria-hidden="true"></span>Расширение Цвет</h1>
+    <span class="ver" id="ver"></span>
+  </header>
+
+  <section class="current" id="current" aria-label="Текущий сайт">
+    <div class="current-text">
+      <div class="current-host" id="curHost">—</div>
+      <div class="current-style" id="curStyle">Без стиля</div>
+    </div>
+    <button class="icon-btn" id="curSave" title="Сохранить текущий стиль" aria-label="Сохранить текущий стиль">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+    </button>
+    <button class="icon-btn" id="curReset" title="Сбросить стиль сайта" aria-label="Сбросить стиль сайта">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+    </button>
+  </section>
 
   <div class="modes" id="modes"></div>
-  <label class="auto-row"><input type="checkbox" id="autoDN"> Авто день/ночь</label>
-  <label class="auto-row" title="Стили и рандом красят всё, кроме видео. На видео действуют только ползунки «Медиа»"><input type="checkbox" id="protectVideo"> Не трогать видео</label>
+
+  <div class="toggles">
+    <label class="switch-row">
+      <span class="switch-text">Авто день/ночь<small>тёмный с 19:00 до 7:00</small></span>
+      <input type="checkbox" id="autoDN" role="switch"><span class="switch" aria-hidden="true"></span>
+    </label>
+    <label class="switch-row">
+      <span class="switch-text">Не трогать видео<small>стиль красит всё, кроме видео</small></span>
+      <input type="checkbox" id="protectVideo" role="switch"><span class="switch" aria-hidden="true"></span>
+    </label>
+  </div>
 
   <div class="grid" id="presets"></div>
 
-  <button id="random" class="random">🎲 Рандом всего CSS</button>
+  <button id="random" class="random">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/></svg>
+    Случайный стиль
+  </button>
 
-  <div class="save-row">
-    <input type="text" id="saveName" placeholder="Название стиля" maxlength="30">
-    <button id="saveBtn">Сохранить</button>
-  </div>
-
-  <div class="import-row">
-    <input type="text" id="importCode" placeholder="Вставь код стиля друга">
-    <button id="importBtn">Импорт</button>
-  </div>
-
-  <details class="tuner" id="tuner">
-    <summary>Тонкая настройка</summary>
-    <label>Оттенок <span id="hueVal">0°</span><input type="range" id="hue" min="0" max="360" value="0"></label>
-    <label>Насыщенность <span id="satVal">100%</span><input type="range" id="sat" min="0" max="300" value="100"></label>
-    <label>Яркость <span id="brightVal">100%</span><input type="range" id="bright" min="50" max="150" value="100"></label>
-    <label>Размер шрифта <span id="fsVal">100%</span><input type="range" id="fs" min="80" max="130" value="100"></label>
-    <button class="tuner-reset" id="tuneReset">Сбросить ползунки</button>
+  <details class="panel tuner" id="tuner">
+    <summary>Тонкая настройка<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+    <div class="panel-body">
+      <label class="slider"><span class="slider-head"><span>Оттенок</span><output id="hueVal">0°</output></span><input type="range" id="hue" min="0" max="360" value="0" data-default="0"></label>
+      <label class="slider"><span class="slider-head"><span>Насыщенность</span><output id="satVal">100%</output></span><input type="range" id="sat" min="0" max="300" value="100" data-default="100"></label>
+      <label class="slider"><span class="slider-head"><span>Яркость</span><output id="brightVal">100%</output></span><input type="range" id="bright" min="50" max="150" value="100" data-default="100"></label>
+      <label class="slider"><span class="slider-head"><span>Размер шрифта</span><output id="fsVal">100%</output></span><input type="range" id="fs" min="80" max="130" value="100" data-default="100"></label>
+      <div class="panel-foot">
+        <span class="hint">Работает поверх текущего стиля</span>
+        <button class="text-btn" id="tuneReset">Сбросить</button>
+      </div>
+    </div>
   </details>
 
-  <details class="tuner" id="mediaBox">
-    <summary>Медиа: картинки и видео</summary>
-    <label>Оттенок <span id="mHueVal">0°</span><input type="range" id="mHue" min="0" max="360" value="0"></label>
-    <label>Насыщенность <span id="mSatVal">100%</span><input type="range" id="mSat" min="0" max="300" value="100"></label>
-    <label>Яркость <span id="mBrightVal">100%</span><input type="range" id="mBright" min="50" max="150" value="100"></label>
-    <button class="tuner-reset" id="mediaReset">Сбросить медиа</button>
+  <details class="panel tuner" id="mediaBox">
+    <summary>Медиа: картинки и видео<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+    <div class="panel-body">
+      <label class="slider"><span class="slider-head"><span>Оттенок</span><output id="mHueVal">0°</output></span><input type="range" id="mHue" min="0" max="360" value="0" data-default="0"></label>
+      <label class="slider"><span class="slider-head"><span>Насыщенность</span><output id="mSatVal">100%</output></span><input type="range" id="mSat" min="0" max="300" value="100" data-default="100"></label>
+      <label class="slider"><span class="slider-head"><span>Яркость</span><output id="mBrightVal">100%</output></span><input type="range" id="mBright" min="50" max="150" value="100" data-default="100"></label>
+      <div class="panel-foot">
+        <span class="hint">Для всех сайтов</span>
+        <button class="text-btn" id="mediaReset">Сбросить</button>
+      </div>
+    </div>
   </details>
 
-  <div class="saved hidden" id="saved">
-    <div class="saved-title">Мои стили</div>
-    <div id="savedList"></div>
-  </div>
-
-  <details class="sites" id="sitesBox">
-    <summary>Сайты <span class="count" id="sitesCount">0</span></summary>
-    <div id="sitesList"></div>
+  <details class="panel" id="savedBox">
+    <summary>Мои стили <span class="count" id="savedCount"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+    <div class="panel-body">
+      <div id="savedList"></div>
+      <div class="field-row">
+        <input type="text" id="saveName" placeholder="Название текущего стиля" maxlength="30">
+        <button class="btn primary" id="saveBtn">Сохранить</button>
+      </div>
+      <div class="field-row">
+        <input type="text" id="importCode" placeholder="Код стиля от друга">
+        <button class="btn" id="importBtn">Импорт</button>
+      </div>
+    </div>
   </details>
 
-  <p id="status"></p>
+  <details class="panel" id="sitesBox">
+    <summary>Сайты <span class="count" id="sitesCount"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+    <div class="panel-body" id="sitesList"></div>
+  </details>
+
+  <p id="status" class="toast" role="status" aria-live="polite"></p>
+
   <script src="common.js"></script>
   <script src="popup.js"></script>
 </body>
