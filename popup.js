@@ -5,85 +5,33 @@ const savedEl = document.getElementById('saved');
 const savedListEl = document.getElementById('savedList');
 const saveNameEl = document.getElementById('saveName');
 const restoreEl = document.getElementById('restorePresets');
+const importCodeEl = document.getElementById('importCode');
+const sitesListEl = document.getElementById('sitesList');
+const autoDnEl = document.getElementById('autoDN');
 
 let currentCfg = null;
 
 document.getElementById('ver').textContent = 'v' + chrome.runtime.getManifest().version;
 
 const MODES = [
-  { id: 'dark-mode',  label: 'Тёмный режим',  rules: { colorScheme: 'dark',  bg: '#1b1d22', textColor: '#e4e6eb', linkColor: '#8ab4f8', borderColor: '#3a3d46' } },
-  { id: 'light-mode', label: 'Светлый режим', rules: { colorScheme: 'light', bg: '#ffffff', textColor: '#1a1c20', linkColor: '#0b57d0', borderColor: '#d5d7de' } }
+  { id: 'dark-mode',  label: 'Тёмный режим',  rules: CVET.MODE_RULES['dark-mode'] },
+  { id: 'light-mode', label: 'Светлый режим', rules: CVET.MODE_RULES['light-mode'] }
 ];
 
 const PRESETS = [
-  { id: 'reset',    label: 'Сброс',     swatch: 'linear-gradient(135deg,#555,#999)', rules: null },
-  { id: 'dark',     label: 'Инверсия',  swatch: '#20242e', rules: { filter: 'invert(1) hue-rotate(180deg)', imgFilter: 'invert(1) hue-rotate(180deg)' } },
-  { id: 'sepia',    label: 'Сепия',     swatch: '#c9a86a', rules: { filter: 'sepia(.85) saturate(1.15)' } },
-  { id: 'bw',       label: 'Ч/Б',       swatch: '#ffffff', rules: { filter: 'grayscale(1) contrast(1.05)' } },
-  { id: 'blue',     label: 'Синий',     swatch: '#4f7cff', rules: { filter: 'hue-rotate(180deg) saturate(1.3)' } },
-  { id: 'matrix',   label: 'Матрица',   swatch: '#00ff66', rules: { textColor: '#00ff66', bg: '#001100', linkColor: '#7dffb0', font: "'Courier New', monospace", textShadow: '0 0 6px rgba(0,255,102,.55)' } },
-  { id: 'warm',     label: 'Тёплая',    swatch: '#ff9d5c', rules: { filter: 'sepia(.35) saturate(1.4) hue-rotate(-12deg) brightness(1.03)' } },
-  { id: 'contrast', label: 'Контраст',  swatch: '#e8e8ec', rules: { filter: 'contrast(1.6) saturate(1.25)' } }
+  { id: 'reset',    label: 'Сброс',      swatch: 'linear-gradient(135deg,#555,#999)', rules: null },
+  { id: 'dark',     label: 'Инверсия',   swatch: '#20242e', rules: { filter: 'invert(1) hue-rotate(180deg)', imgFilter: 'invert(1) hue-rotate(180deg)' } },
+  { id: 'sepia',    label: 'Сепия',      swatch: '#c9a86a', rules: { filter: 'sepia(.85) saturate(1.15)' } },
+  { id: 'bw',       label: 'Ч/Б',        swatch: '#ffffff', rules: { filter: 'grayscale(1) contrast(1.05)' } },
+  { id: 'blue',     label: 'Синий',      swatch: '#4f7cff', rules: { filter: 'hue-rotate(180deg) saturate(1.3)' } },
+  { id: 'matrix',   label: 'Матрица',    swatch: '#00ff66', rules: { textColor: '#00ff66', bg: '#001100', linkColor: '#7dffb0', font: "'Courier New', monospace", textShadow: '0 0 6px rgba(0,255,102,.55)' } },
+  { id: 'reader',   label: 'Читаю',      swatch: '#f5efdd', rules: { bg: '#fbf7ee', textColor: '#33312c', linkColor: '#8a5a2b', extraCss: 'body{max-width:820px !important;margin:0 auto !important;padding:0 16px !important}\np,li,dd,dt,blockquote{font-size:18px !important;line-height:1.75 !important;max-width:78ch}\nh1,h2,h3{line-height:1.3 !important}' } },
+  { id: 'comic',    label: 'Comic Sans', swatch: '#ff69b4', rules: { font: "'Comic Sans MS', cursive" } },
+  { id: 'warm',     label: 'Тёплая',     swatch: '#ff9d5c', rules: { filter: 'sepia(.35) saturate(1.4) hue-rotate(-12deg) brightness(1.03)' } },
+  { id: 'contrast', label: 'Контраст',   swatch: '#e8e8ec', rules: { filter: 'contrast(1.6) saturate(1.25)' } }
 ];
 
-const FONTS = [
-  "'Comic Sans MS', cursive",
-  'Georgia, serif',
-  "'Courier New', monospace",
-  'Impact, sans-serif',
-  'Verdana, sans-serif',
-  "'Times New Roman', serif",
-  "'Trebuchet MS', sans-serif",
-  'system-ui, sans-serif'
-];
-
-const rnd = (a, b) => a + Math.random() * (b - a);
-const pick = (a) => a[Math.floor(Math.random() * a.length)];
-const chance = (p) => Math.random() < p;
-
-function randomCfg() {
-  const f = [
-    'hue-rotate(' + Math.floor(rnd(0, 360)) + 'deg)',
-    'saturate(' + rnd(0.25, 2.8).toFixed(2) + ')',
-    'contrast(' + rnd(0.85, 1.5).toFixed(2) + ')',
-    'brightness(' + rnd(0.8, 1.25).toFixed(2) + ')'
-  ];
-  if (chance(0.25)) f.push('grayscale(1)');
-  const invert = chance(0.3);
-  if (invert) f.push('invert(1)');
-
-  const rules = { filter: f.join(' ') };
-  if (invert) rules.imgFilter = 'invert(1)';
-  if (chance(0.7)) rules.font = pick(FONTS);
-  if (chance(0.55)) rules.letterSpacing = rnd(-1, 3).toFixed(1) + 'px';
-  if (chance(0.4)) rules.wordSpacing = rnd(0, 6).toFixed(1) + 'px';
-  if (chance(0.35)) {
-    const h = Math.floor(rnd(0, 360));
-    rules.textColor = 'hsl(' + h + ', 85%, ' + Math.floor(rnd(35, 75)) + '%)';
-    rules.bg = 'hsl(' + ((h + 180) % 360) + ', ' + Math.floor(rnd(40, 90)) + '%, ' + Math.floor(rnd(4, 22)) + '%)';
-    rules.linkColor = 'hsl(' + ((h + 60) % 360) + ', 95%, 65%)';
-  }
-  if (chance(0.25)) rules.textShadow = pick(['0 0 6px currentColor', '2px 2px 0 rgba(0,0,0,.55)', '-1px -1px 0 rgba(255,255,255,.5)']);
-  if (chance(0.25)) rules.textTransform = 'uppercase';
-  if (chance(0.3)) rules.borderRadius = Math.floor(rnd(2, 16)) + 'px';
-  return { name: 'random', rules };
-}
-
-function hostOf(url) {
-  try { return new URL(url).hostname || 'local-file'; } catch (e) { return null; }
-}
-
-function send(tabId, cfg) {
-  chrome.tabs.sendMessage(tabId, { type: 'apply', cfg }, (resp) => {
-    if (chrome.runtime.lastError || !resp) {
-      // страница открыта до установки расширения — внедряем скрипт и повторяем
-      chrome.scripting.executeScript({ target: { tabId }, files: ['content.js'] }, () => {
-        void chrome.runtime.lastError;
-        chrome.tabs.sendMessage(tabId, { type: 'apply', cfg }, () => void chrome.runtime.lastError);
-      });
-    }
-  });
-}
+// --- применение ---
 
 function applyCfg(cfg, label) {
   currentCfg = cfg;
@@ -93,11 +41,9 @@ function applyCfg(cfg, label) {
       statusEl.textContent = 'Не работает на служебных страницах браузера';
       return;
     }
-    const key = 'host:' + hostOf(tab.url);
-    if (cfg) chrome.storage.local.set({ [key]: cfg });
-    else chrome.storage.local.remove(key);
-    send(tab.id, cfg);
+    CVET.applyToTab(tab, cfg);
     statusEl.textContent = label;
+    renderSites();
   });
 }
 
@@ -106,6 +52,8 @@ function markActive(id) {
     b.classList.toggle('active', b.dataset.id === id);
   });
 }
+
+// --- режимы ---
 
 MODES.forEach((m) => {
   const b = document.createElement('button');
@@ -117,6 +65,26 @@ MODES.forEach((m) => {
   });
   modesEl.appendChild(b);
 });
+
+// --- авто день/ночь ---
+
+chrome.storage.local.get('settings').then((r) => {
+  autoDnEl.checked = !!(r.settings && r.settings.autoDayNight);
+}).catch(() => {});
+
+autoDnEl.addEventListener('change', () => {
+  const on = autoDnEl.checked;
+  chrome.storage.local.set({ settings: { autoDayNight: on } });
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs[0];
+    if (tab && tab.url && /^(https?|file):/.test(tab.url)) {
+      CVET.sendToTab(tab, { type: 'setAuto', enabled: on });
+    }
+  });
+  statusEl.textContent = on ? 'Авто день/ночь: вкл (тёмный после 19:00)' : 'Авто день/ночь: выкл';
+});
+
+// --- пресеты с удалением и восстановлением ---
 
 function loadHidden() {
   return chrome.storage.local.get('hiddenPresets').then((r) => r.hiddenPresets || []);
@@ -173,17 +141,19 @@ restoreEl.addEventListener('click', async () => {
   statusEl.textContent = 'Все системные пресеты восстановлены';
 });
 
-loadHidden().then((h) => {
-  renderPresets(h);
-  updateRestoreBtn(h);
-});
+// --- рандом и карнавал ---
 
 document.getElementById('random').addEventListener('click', () => {
-  applyCfg(randomCfg(), 'Рандом применён — жми ещё!');
+  applyCfg(CVET.randomCfg(), 'Рандом применён — жми ещё!');
   markActive(null);
 });
 
-// --- сохранённые стили ---
+document.getElementById('carnival').addEventListener('click', () => {
+  applyCfg({ name: 'carnival', rules: null }, 'Карнавал! Новый рандом каждые 5 секунд');
+  markActive(null);
+});
+
+// --- сохранение / импорт / экспорт ---
 
 function loadSaved() {
   return chrome.storage.local.get('saved').then((r) => r.saved || []);
@@ -204,6 +174,22 @@ function renderSaved(list) {
       markActive('saved:' + item.id);
     });
 
+    const exp = document.createElement('button');
+    exp.className = 'exp';
+    exp.title = 'Скопировать код стиля';
+    exp.textContent = '⇪';
+    exp.addEventListener('click', async () => {
+      const code = CVET.encodeCfg({ name: item.name, rules: item.rules });
+      try {
+        await navigator.clipboard.writeText(code);
+        statusEl.textContent = 'Код стиля скопирован — кинь другу';
+      } catch (e) {
+        importCodeEl.value = code;
+        importCodeEl.select();
+        statusEl.textContent = 'Не вышло в буфер — код в поле, скопируй вручную (Ctrl+C)';
+      }
+    });
+
     const del = document.createElement('button');
     del.className = 'del';
     del.title = 'Удалить стиль';
@@ -216,6 +202,7 @@ function renderSaved(list) {
     });
 
     row.appendChild(b);
+    row.appendChild(exp);
     row.appendChild(del);
     savedListEl.appendChild(row);
   });
@@ -224,6 +211,10 @@ function renderSaved(list) {
 document.getElementById('saveBtn').addEventListener('click', async () => {
   if (!currentCfg || !currentCfg.rules) {
     statusEl.textContent = 'Сначала примени стиль — например, рандом';
+    return;
+  }
+  if (currentCfg.name === 'carnival') {
+    statusEl.textContent = 'Карнавал не сохранить — это вечный рандом';
     return;
   }
   const list = await loadSaved();
@@ -235,29 +226,142 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   statusEl.textContent = 'Сохранено: ' + name;
 });
 
-// показываем текущее состояние сайта и сохранённые стили
-chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-  const tab = tabs[0];
-  const host = tab && tab.url ? hostOf(tab.url) : null;
-
-  loadSaved().then(renderSaved);
-
-  if (!host) return;
-  chrome.storage.local.get('host:' + host).then((res) => {
-    const cfg = res && res['host:' + host];
-    if (!cfg) return;
-    currentCfg = cfg;
-    if (cfg.name === 'random') {
-      statusEl.textContent = 'Сейчас: рандом';
-    } else if (cfg.name.indexOf('saved:') === 0) {
-      loadSaved().then((list) => {
-        const item = list.find((x) => 'saved:' + x.id === cfg.name);
-        statusEl.textContent = 'Сейчас: ' + (item ? item.name : 'сохранённый стиль');
-      });
-    } else {
-      const known = MODES.find((x) => x.id === cfg.name) || PRESETS.find((x) => x.id === cfg.name);
-      statusEl.textContent = 'Сейчас: ' + (known ? known.label : cfg.name);
-    }
-    markActive(cfg.name);
-  });
+document.getElementById('importBtn').addEventListener('click', async () => {
+  const cfg = CVET.decodeCfg(importCodeEl.value);
+  if (!cfg) {
+    statusEl.textContent = 'Неверный код стиля';
+    return;
+  }
+  const list = await loadSaved();
+  let name = (typeof cfg.name === 'string' && cfg.name.indexOf('saved:') !== 0 && cfg.name !== 'random' && cfg.name !== 'carnival' && cfg.name !== 'tuned')
+    ? cfg.name
+    : '';
+  if (!name) name = 'Импорт ' + (list.length + 1);
+  list.push({ id: Date.now().toString(36), name, rules: cfg.rules });
+  await chrome.storage.local.set({ saved: list });
+  importCodeEl.value = '';
+  renderSaved(list);
+  statusEl.textContent = 'Импортировано: ' + name;
 });
+
+// --- тонкая настройка ---
+
+const hueEl = document.getElementById('hue');
+const satEl = document.getElementById('sat');
+const brightEl = document.getElementById('bright');
+const fsEl = document.getElementById('fs');
+let tuneTimer = null;
+
+function tunedRules() {
+  const rules = {
+    filter: 'hue-rotate(' + hueEl.value + 'deg) saturate(' + (satEl.value / 100) + ') brightness(' + (brightEl.value / 100) + ')'
+  };
+  if (+fsEl.value !== 100) rules.htmlFontSize = fsEl.value + '%';
+  return rules;
+}
+
+function onTune() {
+  document.getElementById('hueVal').textContent = hueEl.value + '°';
+  document.getElementById('satVal').textContent = satEl.value + '%';
+  document.getElementById('brightVal').textContent = brightEl.value + '%';
+  document.getElementById('fsVal').textContent = fsEl.value + '%';
+  clearTimeout(tuneTimer);
+  tuneTimer = setTimeout(() => {
+    applyCfg({ name: 'tuned', rules: tunedRules() }, 'Тонкая настройка применена — можно сохранить ниже');
+    markActive(null);
+  }, 150);
+}
+
+[hueEl, satEl, brightEl, fsEl].forEach((el) => el.addEventListener('input', onTune));
+
+// --- правила по сайтам ---
+
+function cfgLabel(cfg, saved) {
+  if (!cfg) return '';
+  const n = cfg.name || '';
+  if (n === 'random') return 'рандом';
+  if (n === 'carnival') return 'карнавал';
+  if (n === 'tuned') return 'настройка';
+  if (n.indexOf('saved:') === 0) {
+    const it = saved.find((x) => 'saved:' + x.id === n);
+    return it ? it.name : 'сохранённый';
+  }
+  const known = MODES.find((x) => x.id === n) || PRESETS.find((x) => x.id === n);
+  return known ? known.label : n;
+}
+
+async function renderSites() {
+  const all = await chrome.storage.local.get(null);
+  const saved = await loadSaved();
+  const entries = Object.keys(all)
+    .filter((k) => k.indexOf('host:') === 0)
+    .sort()
+    .map((k) => ({ host: k.slice(5), cfg: all[k] }));
+  document.getElementById('sitesCount').textContent = '(' + entries.length + ')';
+  sitesListEl.textContent = '';
+  if (!entries.length) {
+    const empty = document.createElement('div');
+    empty.className = 'site-empty';
+    empty.textContent = 'Пока пусто — выбери стиль, и он запомнится для сайта';
+    sitesListEl.appendChild(empty);
+    return;
+  }
+  entries.forEach(({ host, cfg }) => {
+    const row = document.createElement('div');
+    row.className = 'site-item';
+
+    const h = document.createElement('span');
+    h.className = 'site-host';
+    h.textContent = host;
+    h.title = host;
+
+    const s = document.createElement('span');
+    s.className = 'site-style';
+    s.textContent = cfgLabel(cfg, saved);
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.title = 'Убрать правило для сайта';
+    del.textContent = '✕';
+    del.addEventListener('click', async () => {
+      await chrome.storage.local.remove('host:' + host);
+      renderSites();
+      statusEl.textContent = 'Правило убрано: ' + host;
+    });
+
+    row.appendChild(h);
+    row.appendChild(s);
+    row.appendChild(del);
+    sitesListEl.appendChild(row);
+  });
+}
+
+// --- инициализация ---
+
+(async () => {
+  loadSaved().then(renderSaved);
+  loadHidden().then((h) => {
+    renderPresets(h);
+    updateRestoreBtn(h);
+  });
+  renderSites();
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const host = tab && tab.url ? CVET.hostOf(tab.url) : null;
+  if (!host) return;
+
+  const res = await chrome.storage.local.get('host:' + host).catch(() => null);
+  const cfg = res && res['host:' + host];
+  if (!cfg) {
+    const s = await chrome.storage.local.get('settings').catch(() => null);
+    if (s && s.settings && s.settings.autoDayNight) {
+      const h = new Date().getHours();
+      statusEl.textContent = 'Авто: ' + (h >= 19 || h < 7 ? 'тёмный режим' : 'светлый режим');
+    }
+    return;
+  }
+  currentCfg = cfg;
+  const saved = await loadSaved();
+  statusEl.textContent = 'Сейчас: ' + cfgLabel(cfg, saved);
+  markActive(cfg.name);
+})();

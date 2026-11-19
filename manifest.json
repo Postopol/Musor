@@ -1,10 +1,23 @@
 {
   "manifest_version": 3,
   "name": "Расширение Цвет",
-  "version": "1.2.0",
-  "description": "Меняет цвета и шрифты страниц: детерминированные пресеты и кнопка полного рандома CSS.",
+  "version": "2.0.0",
+  "description": "Меняет цвета и шрифты страниц: пресеты, рандом, тёмный/светлый режим, экспорт стилей и карнавал.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "random": {
+      "suggested_key": { "default": "Alt+R" },
+      "description": "Случайный стиль для страницы"
+    },
+    "reset": {
+      "suggested_key": { "default": "Alt+D" },
+      "description": "Сбросить стиль страницы"
+    }
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "Расширение Цвет"
@@ -17,7 +30,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["common.js", "content.js"],
       "run_at": "document_start"
     }
   ]

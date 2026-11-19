@@ -6,19 +6,48 @@
 </head>
 <body>
   <h1><span class="dot"></span>Расширение Цвет <span class="ver" id="ver"></span></h1>
+
   <div class="modes" id="modes"></div>
+  <label class="auto-row"><input type="checkbox" id="autoDN"> Авто день/ночь</label>
+
   <div class="grid" id="presets"></div>
   <button id="restorePresets" class="restore hidden"></button>
-  <button id="random" class="random">🎲 Рандом всего CSS</button>
+
+  <div class="btn-row">
+    <button id="random" class="random">🎲 Рандом всего CSS</button>
+    <button id="carnival" class="carnival" title="Новый рандом каждые 5 секунд">Карнавал</button>
+  </div>
+
   <div class="save-row">
     <input type="text" id="saveName" placeholder="Название стиля" maxlength="30">
     <button id="saveBtn">Сохранить</button>
   </div>
+
+  <div class="import-row">
+    <input type="text" id="importCode" placeholder="Вставь код стиля друга">
+    <button id="importBtn">Импорт</button>
+  </div>
+
+  <details class="tuner" id="tuner">
+    <summary>Тонкая настройка</summary>
+    <label>Оттенок <span id="hueVal">0°</span><input type="range" id="hue" min="0" max="360" value="0"></label>
+    <label>Насыщенность <span id="satVal">100%</span><input type="range" id="sat" min="0" max="300" value="100"></label>
+    <label>Яркость <span id="brightVal">100%</span><input type="range" id="bright" min="50" max="150" value="100"></label>
+    <label>Размер шрифта <span id="fsVal">100%</span><input type="range" id="fs" min="80" max="130" value="100"></label>
+  </details>
+
   <div class="saved hidden" id="saved">
     <div class="saved-title">Мои стили</div>
     <div id="savedList"></div>
   </div>
+
+  <details class="sites" id="sitesBox">
+    <summary>Сайты <span class="count" id="sitesCount">0</span></summary>
+    <div id="sitesList"></div>
+  </details>
+
   <p id="status"></p>
+  <script src="common.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
