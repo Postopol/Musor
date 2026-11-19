@@ -121,6 +121,101 @@ h1 .dot {
 .random:hover { filter: brightness(1.15); }
 .random:active { transform: scale(.98); }
 
+.save-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.save-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #2c2e36;
+  border-radius: 8px;
+  background: #212229;
+  color: #e8e8ec;
+  font-size: 13px;
+}
+
+.save-row input:focus {
+  outline: none;
+  border-color: #7c8cff;
+}
+
+.save-row button {
+  padding: 8px 14px;
+  border: 1px solid #2c2e36;
+  border-radius: 8px;
+  background: #212229;
+  color: #e8e8ec;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+.save-row button:hover {
+  background: #2a2c35;
+  border-color: #3a3d49;
+}
+
+.saved { margin-bottom: 10px; }
+.saved.hidden { display: none; }
+
+.saved-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #9a9daa;
+  margin-bottom: 6px;
+}
+
+.saved-item {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.saved-item button[data-id] {
+  flex: 1;
+  text-align: left;
+  padding: 7px 10px;
+  border: 1px solid #2c2e36;
+  border-radius: 8px;
+  background: #212229;
+  color: #e8e8ec;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+.saved-item button[data-id]:hover {
+  background: #2a2c35;
+  border-color: #3a3d49;
+}
+
+.saved-item button[data-id].active {
+  border-color: #3ddc84;
+  background: #1f2e26;
+  box-shadow: 0 0 0 1px #3ddc84 inset;
+}
+
+.saved-item .del {
+  width: 34px;
+  border: 1px solid #2c2e36;
+  border-radius: 8px;
+  background: #212229;
+  color: #9a9daa;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+
+.saved-item .del:hover {
+  color: #ff5d7a;
+  border-color: #ff5d7a;
+  background: #2a1d22;
+}
+
 #status {
   font-size: 12px;
   color: #9a9daa;

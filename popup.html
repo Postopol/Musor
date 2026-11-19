@@ -9,6 +9,14 @@
   <div class="modes" id="modes"></div>
   <div class="grid" id="presets"></div>
   <button id="random" class="random">🎲 Рандом всего CSS</button>
+  <div class="save-row">
+    <input type="text" id="saveName" placeholder="Название стиля" maxlength="30">
+    <button id="saveBtn">Сохранить</button>
+  </div>
+  <div class="saved hidden" id="saved">
+    <div class="saved-title">Мои стили</div>
+    <div id="savedList"></div>
+  </div>
   <p id="status"></p>
   <script src="popup.js"></script>
 </body>

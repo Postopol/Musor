@@ -1,6 +1,11 @@
 const statusEl = document.getElementById('status');
 const gridEl = document.getElementById('presets');
 const modesEl = document.getElementById('modes');
+const savedEl = document.getElementById('saved');
+const savedListEl = document.getElementById('savedList');
+const saveNameEl = document.getElementById('saveName');
+
+let currentCfg = null;
 
 const MODES = [
   { id: 'dark-mode',  label: 'Тёмный режим',  rules: { colorScheme: 'dark',  bg: '#1b1d22', textColor: '#e4e6eb', linkColor: '#8ab4f8', borderColor: '#3a3d46' } },
@@ -78,6 +83,7 @@ function send(tabId, cfg) {
 }
 
 function applyCfg(cfg, label) {
+  currentCfg = cfg;
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs[0];
     if (!tab || !tab.url || !/^(https?|file):/.test(tab.url)) {
@@ -125,20 +131,81 @@ document.getElementById('random').addEventListener('click', () => {
   markActive(null);
 });
 
-// показываем текущее состояние сайта
+// --- сохранённые стили ---
+
+function loadSaved() {
+  return chrome.storage.local.get('saved').then((r) => r.saved || []);
+}
+
+function renderSaved(list) {
+  savedEl.classList.toggle('hidden', !list.length);
+  savedListEl.textContent = '';
+  list.forEach((item) => {
+    const row = document.createElement('div');
+    row.className = 'saved-item';
+
+    const b = document.createElement('button');
+    b.dataset.id = 'saved:' + item.id;
+    b.textContent = item.name;
+    b.addEventListener('click', () => {
+      applyCfg({ name: 'saved:' + item.id, rules: item.rules }, 'Применено: ' + item.name);
+      markActive('saved:' + item.id);
+    });
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.title = 'Удалить';
+    del.textContent = '✕';
+    del.addEventListener('click', async () => {
+      const next = (await loadSaved()).filter((x) => x.id !== item.id);
+      await chrome.storage.local.set({ saved: next });
+      renderSaved(next);
+      statusEl.textContent = 'Удалено: ' + item.name;
+    });
+
+    row.appendChild(b);
+    row.appendChild(del);
+    savedListEl.appendChild(row);
+  });
+}
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  if (!currentCfg || !currentCfg.rules) {
+    statusEl.textContent = 'Сначала примени стиль — например, рандом';
+    return;
+  }
+  const list = await loadSaved();
+  const name = saveNameEl.value.trim() || 'Стиль ' + (list.length + 1);
+  list.push({ id: Date.now().toString(36), name, rules: currentCfg.rules });
+  await chrome.storage.local.set({ saved: list });
+  saveNameEl.value = '';
+  renderSaved(list);
+  statusEl.textContent = 'Сохранено: ' + name;
+});
+
+// показываем текущее состояние сайта и сохранённые стили
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   const tab = tabs[0];
   const host = tab && tab.url ? hostOf(tab.url) : null;
+
+  loadSaved().then(renderSaved);
+
   if (!host) return;
   chrome.storage.local.get('host:' + host).then((res) => {
     const cfg = res && res['host:' + host];
     if (!cfg) return;
+    currentCfg = cfg;
     if (cfg.name === 'random') {
       statusEl.textContent = 'Сейчас: рандом';
+    } else if (cfg.name.indexOf('saved:') === 0) {
+      loadSaved().then((list) => {
+        const item = list.find((x) => 'saved:' + x.id === cfg.name);
+        statusEl.textContent = 'Сейчас: ' + (item ? item.name : 'сохранённый стиль');
+      });
     } else {
       const known = MODES.find((x) => x.id === cfg.name) || PRESETS.find((x) => x.id === cfg.name);
       statusEl.textContent = 'Сейчас: ' + (known ? known.label : cfg.name);
-      markActive(cfg.name);
     }
+    markActive(cfg.name);
   });
 });
