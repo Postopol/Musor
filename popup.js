@@ -154,7 +154,7 @@ function renderSaved(list) {
 
     const del = document.createElement('button');
     del.className = 'del';
-    del.title = 'Удалить';
+    del.title = 'Удалить стиль';
     del.textContent = '✕';
     del.addEventListener('click', async () => {
       const next = (await loadSaved()).filter((x) => x.id !== item.id);

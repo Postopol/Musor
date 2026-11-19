@@ -202,18 +202,22 @@ h1 .dot {
 
 .saved-item .del {
   width: 34px;
-  border: 1px solid #2c2e36;
+  flex: none;
+  border: 1px solid #4a2830;
   border-radius: 8px;
-  background: #212229;
-  color: #9a9daa;
+  background: #26191d;
+  color: #ff5d7a;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
-  transition: color .15s, border-color .15s;
+  transition: background .15s, border-color .15s, color .15s;
 }
 
 .saved-item .del:hover {
-  color: #ff5d7a;
+  color: #fff;
   border-color: #ff5d7a;
-  background: #2a1d22;
+  background: #ff5d7a;
 }
 
 #status {
