@@ -7,6 +7,8 @@ const saveNameEl = document.getElementById('saveName');
 
 let currentCfg = null;
 
+document.getElementById('ver').textContent = 'v' + chrome.runtime.getManifest().version;
+
 const MODES = [
   { id: 'dark-mode',  label: 'Тёмный режим',  rules: { colorScheme: 'dark',  bg: '#1b1d22', textColor: '#e4e6eb', linkColor: '#8ab4f8', borderColor: '#3a3d46' } },
   { id: 'light-mode', label: 'Светлый режим', rules: { colorScheme: 'light', bg: '#ffffff', textColor: '#1a1c20', linkColor: '#0b57d0', borderColor: '#d5d7de' } }
