@@ -9,30 +9,33 @@
   let hostCfg = null;
   let autoEnabled = false;
   let explicitReset = false;
-  let mediaFilter = 'auto';
-  let mediaObserver = null;
-  let mediaScanTimer = null;
+  let mediaTune = CVET.DEFAULT_MEDIA_TUNE;
+  let protectVideo = false;
+  let watcher = null;
+  let scanTimer = null;
+  let scanOpts = { bg: false, video: false, cut: false };
 
   // Защита медиа-зон от заливки. ДВА отдельных правила:
   // первое — без :has(), работает на любом Chromium (атрибут ставит JS ниже);
   // второе — дополнительный слой для современных движков.
   // Нельзя объединять в одно: при неподдержке :has() умрёт всё правило целиком.
+  // :has() — только для ПРЯМОГО родителя и никогда для html/body:
+  // «*:has(video)» ловит всех предков, включая body, и стирает фон всей страницы.
   const MEDIA_EXEMPT =
     '[data-cvet-media],[data-cvet-media] *,' +
     'img,video,picture,canvas,svg,iframe,embed,object' +
     '{background-color:transparent !important}\n' +
-    '*:has(video),*:has(video) *,' +
-    '*:has(iframe),*:has(iframe) *,' +
-    '*:has(canvas),*:has(canvas) *' +
+    ':not(html,body):has(> video,> iframe,> canvas),' +
+    ':not(html,body):has(> video,> iframe,> canvas) *' +
     '{background-color:transparent !important}\n';
 
-  const MEDIA_EL = 'img,video,picture,canvas,svg,iframe';
-  const MEDIA_FILTERS = {
-    invert: 'invert(1)',
-    sepia: 'sepia(.8)',
-    grayscale: 'grayscale(1)',
-    hue: 'hue-rotate(90deg) saturate(1.8)'
-  };
+  // picture не фильтруем: внутри всегда img, иначе фильтр ляжет дважды
+  const MEDIA_EL = 'img,video,canvas,svg,iframe';
+  // вложенный svg уже получил фильтр от внешнего
+  const MEDIA_NESTED_RESET = 'svg svg{filter:none !important}\n';
+  // встроенные плееры, которые считаем видео (для «Не трогать видео»)
+  const VIDEO_IFRAME = /(youtube\.com|youtube-nocookie\.com|youtu\.be|vimeo\.com|rutube\.ru|vk\.com\/video|vkvideo\.ru|ok\.ru\/videoembed|dzen\.ru|twitch\.tv|dailymotion\.com|coub\.com)/i;
+  const SKIP_TAGS = { HEAD: 1, SCRIPT: 1, STYLE: 1, LINK: 1, META: 1, TEMPLATE: 1, NOSCRIPT: 1 };
 
   function getSheet() {
     if (sheet) return sheet;
@@ -52,19 +55,31 @@
     }
   }
 
-  function buildCss(cfg) {
-    if (!cfg || !cfg.rules) return '';
-    const r = cfg.rules;
+  // масштаб шрифта в %; старые сохранённые стили хранили строку htmlFontSize: '110%'
+  function fontScaleOf(r) {
+    const v = r.fontScale || parseFloat(r.htmlFontSize) || 100;
+    return v === 100 ? 0 : v;
+  }
+
+  function buildCss(cfg, fontPx) {
+    const r = (cfg && cfg.rules) || {};
+    const mediaT = CVET.tuneFilter(mediaTune);
     let css = '';
     if (r.colorScheme) css += 'html{color-scheme:' + r.colorScheme + ' !important}\n';
-    if (r.filter) css += 'html{filter:' + r.filter + ' !important}\n';
 
-    // фильтр для медиа: либо отдельный (опция), либо контр-фильтр из стиля
-    const mf = MEDIA_FILTERS[mediaFilter];
-    if (mf) css += MEDIA_EL + '{filter:' + mf + ' !important}\n';
-    else if (r.imgFilter) css += 'img,video,picture,canvas,svg,iframe{filter:' + r.imgFilter + ' !important}\n';
+    // фильтр страницы: на html, а при «Не трогать видео» — на кусках страницы вокруг видео
+    if (r.filter) {
+      css += 'html:not([data-cvet-cut]){filter:' + r.filter + ' !important}\n';
+      css += '[data-cvet-f]{filter:' + r.filter + ' !important}\n';
+    }
 
-    if (r.htmlFontSize) css += 'html{font-size:' + r.htmlFontSize + ' !important}\n';
+    // медиа: контр-фильтр стиля (например, у инверсии) + ползунки «Медиа»
+    const mediaF = [r.imgFilter, mediaT].filter(Boolean).join(' ');
+    if (mediaF) css += MEDIA_EL + '{filter:' + mediaF + ' !important}\n' + MEDIA_NESTED_RESET;
+    // защищённое видео: стиль его не касается, действуют только ползунки «Медиа»
+    if (protectVideo) css += '[data-cvet-video]{filter:' + (mediaT || 'none') + ' !important}\n';
+
+    if (fontPx) css += 'html{font-size:' + fontPx.toFixed(2) + 'px !important}\n';
 
     const fd = [];
     if (r.font) fd.push('font-family:' + r.font + ' !important');
@@ -88,52 +103,113 @@
     return css;
   }
 
-  // --- маркировка плееров: JS-слой защиты, не зависит от поддержки :has() ---
+  // --- маркировка плееров: JS-слой защиты фона, не зависит от поддержки :has() ---
 
   function markMediaRoots() {
     if (!document.body) return;
     document.querySelectorAll('video, canvas, object, embed, iframe').forEach((el) => {
       if (el.closest('[data-cvet-media]')) return;
       // поднимаемся от видео вверх, пока контейнер похож на плеер
-      // (класс/id содержит player, video, media и т.п.) — так захватываем оверлеи
-      let node = el.parentElement;
-      let last = node;
+      // (класс/id содержит player, video, media и т.п.) — так захватываем оверлеи;
+      // прямой родитель метится всегда, первый обычный предок — НЕТ
+      let last = el.parentElement;
+      let node = last;
       let levels = 0;
       while (node && node !== document.body && levels < 8) {
-        last = node;
         const cls = (typeof node.className === 'string' ? node.className : '') + ' ' + (node.id || '');
         if (!/(player|video|media|embed|stream|carousel|shorts|reel)/i.test(cls)) break;
+        last = node;
         node = node.parentElement;
         levels++;
       }
-      if (last) last.setAttribute('data-cvet-media', '');
+      // body/html не метим: иначе прозрачной станет вся страница
+      if (last && last !== document.body && last !== document.documentElement) {
+        last.setAttribute('data-cvet-media', '');
+      }
     });
   }
 
-  function scheduleMediaScan() {
-    clearTimeout(mediaScanTimer);
-    mediaScanTimer = setTimeout(markMediaRoots, 300);
+  // --- «Не трогать видео» ---
+  // Фильтр на html действует на всё внутри, видео из-под него не вынуть.
+  // Поэтому фильтр вешаем не на html, а на «срез»: всех соседей по пути
+  // от видео до html. Сам путь и видео остаются без фильтра.
+
+  function isVideo(el) {
+    if (el.tagName === 'VIDEO') return true;
+    return VIDEO_IFRAME.test(el.getAttribute('src') || '');
   }
 
-  function ensureMediaWatch(on) {
-    if (on && !mediaObserver) {
-      mediaObserver = new MutationObserver(scheduleMediaScan);
-      mediaObserver.observe(document.documentElement, { childList: true, subtree: true });
-      markMediaRoots();
-    } else if (!on && mediaObserver) {
-      mediaObserver.disconnect();
-      mediaObserver = null;
+  function setMarks(attr, wanted) {
+    document.querySelectorAll('[' + attr + ']').forEach((el) => {
+      if (!wanted.has(el)) el.removeAttribute(attr);
+    });
+    wanted.forEach((el) => {
+      if (!el.hasAttribute(attr)) el.setAttribute(attr, '');
+    });
+  }
+
+  function markVideos(cut) {
+    const videos = new Set();
+    document.querySelectorAll('video, iframe').forEach((el) => { if (isVideo(el)) videos.add(el); });
+    setMarks('data-cvet-video', videos);
+
+    const root = document.documentElement;
+    if (!cut || !videos.size) {
+      setMarks('data-cvet-f', new Set());
+      root.removeAttribute('data-cvet-cut');
+      return;
     }
+    const path = new Set();
+    videos.forEach((v) => {
+      for (let n = v.parentElement; n && !path.has(n); n = n.parentElement) path.add(n);
+    });
+    const pieces = new Set();
+    path.forEach((n) => {
+      for (const child of n.children) {
+        if (!path.has(child) && !videos.has(child) && !SKIP_TAGS[child.tagName]) pieces.add(child);
+      }
+    });
+    setMarks('data-cvet-f', pieces);
+    root.setAttribute('data-cvet-cut', '');
   }
 
-  function applyCfg(cfg) {
-    try {
-      getSheet().replaceSync(buildCss(cfg));
-    } catch (e) { /* ignore */ }
-    ensureMediaWatch(!!(cfg && cfg.rules && cfg.rules.bg));
+  function clearVideoMarks() {
+    setMarks('data-cvet-video', new Set());
+    setMarks('data-cvet-f', new Set());
+    document.documentElement.removeAttribute('data-cvet-cut');
   }
 
-  // --- авто день/ночь ---
+  function scan() {
+    if (scanOpts.bg) markMediaRoots();
+    if (scanOpts.video) markVideos(scanOpts.cut);
+  }
+
+  // throttle, а не debounce: на «живых» страницах (Ютуб, часы, ленты) DOM меняется
+  // чаще 300 мс, и debounce откладывал сканирование бесконечно
+  function scheduleScan() {
+    if (scanTimer) return;
+    scanTimer = setTimeout(() => {
+      scanTimer = null;
+      scan();
+    }, 300);
+  }
+
+  function updateWatch(opts) {
+    const wasVideo = scanOpts.video;
+    scanOpts = opts;
+    if (wasVideo && !opts.video) clearVideoMarks();
+    const on = opts.bg || opts.video;
+    if (on && !watcher) {
+      watcher = new MutationObserver(scheduleScan);
+      watcher.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
+    } else if (!on && watcher) {
+      watcher.disconnect();
+      watcher = null;
+    }
+    if (on) scan();
+  }
+
+  // --- применение ---
 
   function autoCfg() {
     const h = new Date().getHours();
@@ -143,9 +219,50 @@
       : { name: 'light-mode', rules: CVET.MODE_RULES['light-mode'] };
   }
 
-  function refreshAuto() {
-    if (!autoEnabled || hostCfg || explicitReset) return;
-    applyCfg(autoCfg());
+  function activeCfg() {
+    if (hostCfg) return hostCfg;
+    if (autoEnabled && !explicitReset) return autoCfg();
+    return null;
+  }
+
+  function render() {
+    const cfg = activeCfg();
+    const r = (cfg && cfg.rules) || {};
+    const scale = fontScaleOf(r);
+    try {
+      const s = getSheet();
+      if (scale) {
+        // размер шрифта считаем от размера самого сайта (у Ютуба 10px, а не 16px):
+        // сначала применяем стиль без шрифта, меряем, потом ставим шрифт
+        s.replaceSync(buildCss(cfg, 0));
+        const base = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        s.replaceSync(buildCss(cfg, base * scale / 100));
+      } else {
+        s.replaceSync(buildCss(cfg, 0));
+      }
+    } catch (e) { /* ignore */ }
+
+    const mediaActive = !!(cfg || CVET.tuneFilter(mediaTune));
+    updateWatch({
+      bg: !!r.bg,
+      video: protectVideo && mediaActive,
+      cut: protectVideo && !!r.filter
+    });
+  }
+
+  // стили сайта грузятся после document_start — перемеряем шрифт, когда они готовы
+  function rerenderIfFont() {
+    const cfg = activeCfg();
+    if (cfg && cfg.rules && fontScaleOf(cfg.rules)) render();
+  }
+  document.addEventListener('DOMContentLoaded', rerenderIfFont);
+  window.addEventListener('load', rerenderIfFont);
+
+  function applySettings(s) {
+    s = s || {};
+    autoEnabled = !!s.autoDayNight;
+    protectVideo = !!s.protectVideo;
+    mediaTune = CVET.normTune(s.mediaTune);
   }
 
   // --- сообщения от попапа и хоткеев ---
@@ -155,24 +272,23 @@
     if (msg.type === 'apply') {
       hostCfg = msg.cfg || null;
       explicitReset = !hostCfg;
-      applyCfg(hostCfg);
+      render();
       sendResponse({ ok: true });
-    } else if (msg.type === 'setAuto') {
-      autoEnabled = !!msg.enabled;
-      if (autoEnabled) {
-        explicitReset = false;
-        refreshAuto();
-      } else if (!hostCfg) {
-        applyCfg(null);
-      }
-      sendResponse({ ok: true });
-    } else if (msg.type === 'setMedia') {
-      mediaFilter = typeof msg.value === 'string' && MEDIA_FILTERS[msg.value] ? msg.value : 'auto';
-      if (hostCfg) applyCfg(hostCfg);
-      else if (autoEnabled) applyCfg(autoCfg());
-      else applyCfg(null);
+    } else if (msg.type === 'settings') {
+      if (msg.settings && msg.settings.autoDayNight && !autoEnabled) explicitReset = false;
+      applySettings(msg.settings);
+      render();
       sendResponse({ ok: true });
     }
+  });
+
+  // общие настройки поменялись в попапе — обновляем и остальные открытые вкладки
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.settings) return;
+    const s = changes.settings.newValue || {};
+    if (s.autoDayNight && !autoEnabled) explicitReset = false;
+    applySettings(s);
+    render();
   });
 
   // --- восстановление при загрузке страницы ---
@@ -180,13 +296,12 @@
   const host = location.hostname || 'local-file';
   chrome.storage.local.get(['host:' + host, 'settings']).then((res) => {
     hostCfg = res['host:' + host] || null;
-    const s = res.settings || {};
-    autoEnabled = !!s.autoDayNight;
-    mediaFilter = s.mediaFilter || 'auto';
-    if (hostCfg) applyCfg(hostCfg);
-    else if (autoEnabled) applyCfg(autoCfg());
+    applySettings(res.settings);
+    render();
   }).catch(() => {});
 
   // раз в минуту перепроверяем авто день/ночь
-  setInterval(refreshAuto, 60000);
+  setInterval(() => {
+    if (autoEnabled && !hostCfg && !explicitReset) render();
+  }, 60000);
 })();

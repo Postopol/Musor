@@ -7,9 +7,11 @@ const saveNameEl = document.getElementById('saveName');
 const importCodeEl = document.getElementById('importCode');
 const sitesListEl = document.getElementById('sitesList');
 const autoDnEl = document.getElementById('autoDN');
-const mediaFilterEl = document.getElementById('mediaFilter');
+const protectVideoEl = document.getElementById('protectVideo');
 
 let currentCfg = null;
+// стиль, поверх которого работает тонкая настройка
+let baseCfg = null;
 
 document.getElementById('ver').textContent = 'v' + chrome.runtime.getManifest().version;
 
@@ -35,6 +37,10 @@ const PRESETS = [
 
 function applyCfg(cfg, label) {
   currentCfg = cfg;
+  if (!cfg || cfg.name !== 'tuned') {
+    baseCfg = cfg;
+    setTuneUI(null);
+  }
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs[0];
     if (!tab || !tab.url || !/^(https?|file):/.test(tab.url)) {
@@ -66,45 +72,73 @@ MODES.forEach((m) => {
   modesEl.appendChild(b);
 });
 
-// --- авто день/ночь и фильтр медиа ---
+// --- общие настройки: авто день/ночь, «Не трогать видео», ползунки «Медиа» ---
+
+const mHueEl = document.getElementById('mHue');
+const mSatEl = document.getElementById('mSat');
+const mBrightEl = document.getElementById('mBright');
+
+function setMediaUI(t) {
+  t = CVET.normTune(t);
+  mHueEl.value = t.hue;
+  mSatEl.value = t.sat;
+  mBrightEl.value = t.bright;
+  document.getElementById('mHueVal').textContent = t.hue + '°';
+  document.getElementById('mSatVal').textContent = t.sat + '%';
+  document.getElementById('mBrightVal').textContent = t.bright + '%';
+}
 
 chrome.storage.local.get('settings').then((r) => {
   const s = r.settings || {};
   autoDnEl.checked = !!s.autoDayNight;
-  mediaFilterEl.value = s.mediaFilter || 'auto';
+  protectVideoEl.checked = !!s.protectVideo;
+  setMediaUI(s.mediaTune);
 }).catch(() => {});
 
-function saveSetting(patch) {
-  return chrome.storage.local.get('settings').then((r) => {
-    const s = Object.assign({}, r.settings, patch);
-    return chrome.storage.local.set({ settings: s });
+// сохраняем и сразу шлём активной вкладке (остальные подхватят через storage)
+async function updateSettings(patch) {
+  const r = await chrome.storage.local.get('settings');
+  const s = Object.assign({}, r.settings, patch);
+  delete s.mediaFilter; // старая опция из выпадающего списка
+  await chrome.storage.local.set({ settings: s });
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs[0];
+    if (tab && tab.url && /^(https?|file):/.test(tab.url)) {
+      CVET.sendToTab(tab, { type: 'settings', settings: s });
+    }
   });
 }
 
 autoDnEl.addEventListener('change', () => {
   const on = autoDnEl.checked;
-  saveSetting({ autoDayNight: on });
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const tab = tabs[0];
-    if (tab && tab.url && /^(https?|file):/.test(tab.url)) {
-      CVET.sendToTab(tab, { type: 'setAuto', enabled: on });
-    }
-  });
+  updateSettings({ autoDayNight: on });
   statusEl.textContent = on ? 'Авто день/ночь: вкл (тёмный после 19:00)' : 'Авто день/ночь: выкл';
 });
 
-const MEDIA_LABELS = { auto: 'как в стиле', invert: 'инверсия', sepia: 'сепия', grayscale: 'ч/б', hue: 'психоделика' };
+protectVideoEl.addEventListener('change', () => {
+  const on = protectVideoEl.checked;
+  updateSettings({ protectVideo: on });
+  statusEl.textContent = on ? 'Видео не трогаем: на него действуют только ползунки «Медиа»' : 'Видео красится вместе со страницей';
+});
 
-mediaFilterEl.addEventListener('change', () => {
-  const v = mediaFilterEl.value;
-  saveSetting({ mediaFilter: v });
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const tab = tabs[0];
-    if (tab && tab.url && /^(https?|file):/.test(tab.url)) {
-      CVET.sendToTab(tab, { type: 'setMedia', value: v });
-    }
-  });
-  statusEl.textContent = 'Медиа: ' + (MEDIA_LABELS[v] || v);
+let mediaTimer = null;
+function mediaTuneFromUI() {
+  return { hue: +mHueEl.value, sat: +mSatEl.value, bright: +mBrightEl.value };
+}
+function onMediaTune() {
+  setMediaUI(mediaTuneFromUI());
+  clearTimeout(mediaTimer);
+  mediaTimer = setTimeout(() => {
+    updateSettings({ mediaTune: mediaTuneFromUI() });
+    statusEl.textContent = 'Медиа настроено (для всех сайтов)';
+  }, 150);
+}
+[mHueEl, mSatEl, mBrightEl].forEach((el) => el.addEventListener('input', onMediaTune));
+
+document.getElementById('mediaReset').addEventListener('click', () => {
+  setMediaUI(null);
+  updateSettings({ mediaTune: CVET.normTune(null) });
+  statusEl.textContent = 'Медиа сброшено';
 });
 
 // --- пресеты с удалением и восстановлением ---
@@ -245,7 +279,7 @@ document.getElementById('importBtn').addEventListener('click', async () => {
   statusEl.textContent = 'Импортировано: ' + name;
 });
 
-// --- тонкая настройка ---
+// --- тонкая настройка: работает поверх текущего стиля ---
 
 const hueEl = document.getElementById('hue');
 const satEl = document.getElementById('sat');
@@ -253,27 +287,61 @@ const brightEl = document.getElementById('bright');
 const fsEl = document.getElementById('fs');
 let tuneTimer = null;
 
-function tunedRules() {
-  const rules = {
-    filter: 'hue-rotate(' + hueEl.value + 'deg) saturate(' + (satEl.value / 100) + ') brightness(' + (brightEl.value / 100) + ')'
-  };
-  if (+fsEl.value !== 100) rules.htmlFontSize = fsEl.value + '%';
-  return rules;
+const DEFAULT_TUNE = { hue: 0, sat: 100, bright: 100, fs: 100 };
+
+function setTuneUI(t) {
+  t = Object.assign({}, DEFAULT_TUNE, t);
+  hueEl.value = t.hue;
+  satEl.value = t.sat;
+  brightEl.value = t.bright;
+  fsEl.value = t.fs;
+  document.getElementById('hueVal').textContent = t.hue + '°';
+  document.getElementById('satVal').textContent = t.sat + '%';
+  document.getElementById('brightVal').textContent = t.bright + '%';
+  document.getElementById('fsVal').textContent = t.fs + '%';
+}
+
+function tuneFromUI() {
+  return { hue: +hueEl.value, sat: +satEl.value, bright: +brightEl.value, fs: +fsEl.value };
+}
+
+// null — все ползунки на месте, настраивать нечего
+function tunedCfg(base, t) {
+  const f = CVET.tuneFilter(t);
+  if (!f && t.fs === 100) return null;
+  const rules = Object.assign({}, base && base.rules);
+  delete rules.htmlFontSize;
+  delete rules.fontScale;
+  const filter = [rules.filter, f].filter(Boolean).join(' ');
+  if (filter) rules.filter = filter;
+  if (t.fs !== 100) rules.fontScale = t.fs;
+  return { name: 'tuned', base: base || null, tune: t, rules };
+}
+
+function applyTune() {
+  const cfg = tunedCfg(baseCfg, tuneFromUI());
+  if (cfg) {
+    applyCfg(cfg, 'Тонкая настройка применена — можно сохранить ниже');
+    markActive(null);
+  } else {
+    // ползунки вернули на место — возвращаем исходный стиль
+    applyCfg(baseCfg, baseCfg ? 'Ползунки сброшены' : 'Сброшено');
+    markActive(baseCfg ? baseCfg.name : null);
+  }
 }
 
 function onTune() {
-  document.getElementById('hueVal').textContent = hueEl.value + '°';
-  document.getElementById('satVal').textContent = satEl.value + '%';
-  document.getElementById('brightVal').textContent = brightEl.value + '%';
-  document.getElementById('fsVal').textContent = fsEl.value + '%';
+  setTuneUI(tuneFromUI());
   clearTimeout(tuneTimer);
-  tuneTimer = setTimeout(() => {
-    applyCfg({ name: 'tuned', rules: tunedRules() }, 'Тонкая настройка применена — можно сохранить ниже');
-    markActive(null);
-  }, 150);
+  tuneTimer = setTimeout(applyTune, 150);
 }
 
 [hueEl, satEl, brightEl, fsEl].forEach((el) => el.addEventListener('input', onTune));
+
+document.getElementById('tuneReset').addEventListener('click', () => {
+  setTuneUI(null);
+  applyTune();
+});
 
 // --- правила по сайтам ---
 
@@ -281,7 +349,7 @@ function cfgLabel(cfg, saved) {
   if (!cfg) return '';
   const n = cfg.name || '';
   if (n === 'random') return 'рандом';
-  if (n === 'tuned') return 'настройка';
+  if (n === 'tuned') return cfg.base ? cfgLabel(cfg.base, saved) + ' + настройка' : 'настройка';
   if (n.indexOf('saved:') === 0) {
     const it = saved.find((x) => 'saved:' + x.id === n);
     return it ? it.name : 'сохранённый';
@@ -358,7 +426,13 @@ async function renderSites() {
     return;
   }
   currentCfg = cfg;
+  if (cfg.name === 'tuned') {
+    baseCfg = cfg.base || null;
+    setTuneUI(cfg.tune);
+  } else {
+    baseCfg = cfg;
+  }
   const saved = await loadSaved();
   statusEl.textContent = 'Сейчас: ' + cfgLabel(cfg, saved);
-  markActive(cfg.name);
+  markActive(cfg.name === 'tuned' ? null : cfg.name);
 })();

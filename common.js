@@ -53,6 +53,25 @@ var CVET = (function () {
     return { name: 'random', rules: randomRules() };
   }
 
+  // ползунки цвета (тонкая настройка и «Медиа»): оттенок в градусах, насыщенность и яркость в %
+  const DEFAULT_MEDIA_TUNE = { hue: 0, sat: 100, bright: 100 };
+
+  function normTune(t) {
+    t = t || {};
+    const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+    return { hue: num(t.hue, 0), sat: num(t.sat, 100), bright: num(t.bright, 100) };
+  }
+
+  // только изменённые части: нулевой фильтр не вешаем вовсе
+  function tuneFilter(t) {
+    t = normTune(t);
+    const f = [];
+    if (t.hue % 360 !== 0) f.push('hue-rotate(' + t.hue + 'deg)');
+    if (t.sat !== 100) f.push('saturate(' + t.sat / 100 + ')');
+    if (t.bright !== 100) f.push('brightness(' + t.bright / 100 + ')');
+    return f.join(' ');
+  }
+
   function hostOf(url) {
     try { return new URL(url).hostname || 'local-file'; } catch (e) { return null; }
   }
@@ -100,5 +119,5 @@ var CVET = (function () {
     sendToTab(tab, { type: 'apply', cfg });
   }
 
-  return { MODE_RULES, randomCfg, hostOf, encodeCfg, decodeCfg, sendToTab, applyToTab };
+  return { MODE_RULES, DEFAULT_MEDIA_TUNE, normTune, tuneFilter, randomCfg, hostOf, encodeCfg, decodeCfg, sendToTab, applyToTab };
 })();

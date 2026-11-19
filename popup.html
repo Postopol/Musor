@@ -9,15 +9,7 @@
 
   <div class="modes" id="modes"></div>
   <label class="auto-row"><input type="checkbox" id="autoDN"> Авто день/ночь</label>
-  <label class="auto-row media-row">Медиа:
-    <select id="mediaFilter" title="Отдельный фильтр для видео и картинок">
-      <option value="auto">как в стиле</option>
-      <option value="invert">инверсия</option>
-      <option value="sepia">сепия</option>
-      <option value="grayscale">ч/б</option>
-      <option value="hue">психоделика</option>
-    </select>
-  </label>
+  <label class="auto-row" title="Стили и рандом красят всё, кроме видео. На видео действуют только ползунки «Медиа»"><input type="checkbox" id="protectVideo"> Не трогать видео</label>
 
   <div class="grid" id="presets"></div>
 
@@ -39,6 +31,15 @@
     <label>Насыщенность <span id="satVal">100%</span><input type="range" id="sat" min="0" max="300" value="100"></label>
     <label>Яркость <span id="brightVal">100%</span><input type="range" id="bright" min="50" max="150" value="100"></label>
     <label>Размер шрифта <span id="fsVal">100%</span><input type="range" id="fs" min="80" max="130" value="100"></label>
+    <button class="tuner-reset" id="tuneReset">Сбросить ползунки</button>
+  </details>
+
+  <details class="tuner" id="mediaBox">
+    <summary>Медиа: картинки и видео</summary>
+    <label>Оттенок <span id="mHueVal">0°</span><input type="range" id="mHue" min="0" max="360" value="0"></label>
+    <label>Насыщенность <span id="mSatVal">100%</span><input type="range" id="mSat" min="0" max="300" value="100"></label>
+    <label>Яркость <span id="mBrightVal">100%</span><input type="range" id="mBright" min="50" max="150" value="100"></label>
+    <button class="tuner-reset" id="mediaReset">Сбросить медиа</button>
   </details>
 
   <div class="saved hidden" id="saved">

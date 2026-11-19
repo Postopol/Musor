@@ -72,23 +72,6 @@ h1 .ver {
 
 .auto-row input { accent-color: #7c8cff; width: 15px; height: 15px; cursor: pointer; }
 
-.media-row { justify-content: space-between; }
-
-.media-row select {
-  flex: 1;
-  max-width: 150px;
-  margin-left: auto;
-  padding: 5px 8px;
-  border: 1px solid #2c2e36;
-  border-radius: 8px;
-  background: #212229;
-  color: #e8e8ec;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.media-row select:focus { outline: none; border-color: #7c8cff; }
-
 /* --- пресеты --- */
 
 .grid {
@@ -242,6 +225,19 @@ details summary:hover { color: #e8e8ec; }
 }
 
 .tuner input[type="range"] { flex: 1; accent-color: #7c8cff; }
+
+.tuner-reset {
+  margin-top: 10px;
+  padding: 5px 10px;
+  border: 1px solid #2c2e36;
+  border-radius: 8px;
+  background: #212229;
+  color: #c6c8d4;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tuner-reset:hover { background: #2a2c35; border-color: #3a3d49; color: #e8e8ec; }
 
 .count { color: #6b6e7a; }
 
