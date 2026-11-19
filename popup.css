@@ -1,0 +1,128 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  width: 300px;
+  padding: 14px;
+  background: #17181c;
+  color: #e8e8ec;
+  font: 14px/1.4 system-ui, sans-serif;
+}
+
+h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+h1 .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: conic-gradient(red, orange, yellow, lime, cyan, blue, magenta, red);
+}
+
+.modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.modes button {
+  padding: 11px 10px;
+  border: 1px solid #2c2e36;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, box-shadow .15s;
+}
+
+.modes button[data-id="dark-mode"] {
+  background: #1d1f26;
+  color: #e4e6eb;
+}
+
+.modes button[data-id="light-mode"] {
+  background: #f2f3f7;
+  color: #1a1c20;
+}
+
+.modes button[data-id="dark-mode"]:hover { background: #262933; border-color: #3a3d49; }
+.modes button[data-id="light-mode"]:hover { background: #fff; border-color: #c3c6d0; }
+
+.modes button.active[data-id="dark-mode"] {
+  border-color: #7c8cff;
+  box-shadow: 0 0 0 1px #7c8cff inset;
+}
+
+.modes button.active[data-id="light-mode"] {
+  border-color: #7c5cff;
+  box-shadow: 0 0 0 1px #7c5cff inset;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.grid button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid #2c2e36;
+  border-radius: 8px;
+  background: #212229;
+  color: #e8e8ec;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+.grid button:hover {
+  background: #2a2c35;
+  border-color: #3a3d49;
+}
+
+.grid button.active {
+  border-color: #7c8cff;
+  background: #262a3d;
+  box-shadow: 0 0 0 1px #7c8cff inset;
+}
+
+.grid .sw {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+  border: 1px solid rgba(255,255,255,.25);
+}
+
+.random {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #ff3d81, #7c5cff, #00c2ff);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: filter .15s;
+}
+
+.random:hover { filter: brightness(1.15); }
+.random:active { transform: scale(.98); }
+
+#status {
+  font-size: 12px;
+  color: #9a9daa;
+  min-height: 16px;
+}
