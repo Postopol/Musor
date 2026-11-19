@@ -4,7 +4,6 @@ const modesEl = document.getElementById('modes');
 const savedEl = document.getElementById('saved');
 const savedListEl = document.getElementById('savedList');
 const saveNameEl = document.getElementById('saveName');
-const restoreEl = document.getElementById('restorePresets');
 const importCodeEl = document.getElementById('importCode');
 const sitesListEl = document.getElementById('sitesList');
 const autoDnEl = document.getElementById('autoDN');
@@ -114,11 +113,6 @@ function loadHidden() {
   return chrome.storage.local.get('hiddenPresets').then((r) => r.hiddenPresets || []);
 }
 
-function updateRestoreBtn(hidden) {
-  restoreEl.classList.toggle('hidden', !hidden.length);
-  restoreEl.textContent = 'Восстановить системные пресеты (' + hidden.length + ')';
-}
-
 function renderPresets(hidden) {
   gridEl.textContent = '';
   PRESETS.forEach((p) => {
@@ -145,7 +139,6 @@ function renderPresets(hidden) {
         if (list.indexOf(p.id) === -1) list.push(p.id);
         await chrome.storage.local.set({ hiddenPresets: list });
         renderPresets(list);
-        updateRestoreBtn(list);
         statusEl.textContent = 'Пресет удалён: ' + p.label;
       });
       row.appendChild(del);
@@ -158,22 +151,10 @@ function renderPresets(hidden) {
   });
 }
 
-restoreEl.addEventListener('click', async () => {
-  await chrome.storage.local.set({ hiddenPresets: [] });
-  renderPresets([]);
-  updateRestoreBtn([]);
-  statusEl.textContent = 'Все системные пресеты восстановлены';
-});
-
-// --- рандом и карнавал ---
+// --- рандом ---
 
 document.getElementById('random').addEventListener('click', () => {
   applyCfg(CVET.randomCfg(), 'Рандом применён — жми ещё!');
-  markActive(null);
-});
-
-document.getElementById('carnival').addEventListener('click', () => {
-  applyCfg({ name: 'carnival', rules: null }, 'Карнавал! Новый рандом каждые 5 секунд');
   markActive(null);
 });
 
@@ -237,10 +218,6 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     statusEl.textContent = 'Сначала примени стиль — например, рандом';
     return;
   }
-  if (currentCfg.name === 'carnival') {
-    statusEl.textContent = 'Карнавал не сохранить — это вечный рандом';
-    return;
-  }
   const list = await loadSaved();
   const name = saveNameEl.value.trim() || 'Стиль ' + (list.length + 1);
   list.push({ id: Date.now().toString(36), name, rules: currentCfg.rules });
@@ -257,7 +234,7 @@ document.getElementById('importBtn').addEventListener('click', async () => {
     return;
   }
   const list = await loadSaved();
-  let name = (typeof cfg.name === 'string' && cfg.name.indexOf('saved:') !== 0 && cfg.name !== 'random' && cfg.name !== 'carnival' && cfg.name !== 'tuned')
+  let name = (typeof cfg.name === 'string' && cfg.name.indexOf('saved:') !== 0 && cfg.name !== 'random' && cfg.name !== 'tuned')
     ? cfg.name
     : '';
   if (!name) name = 'Импорт ' + (list.length + 1);
@@ -304,7 +281,6 @@ function cfgLabel(cfg, saved) {
   if (!cfg) return '';
   const n = cfg.name || '';
   if (n === 'random') return 'рандом';
-  if (n === 'carnival') return 'карнавал';
   if (n === 'tuned') return 'настройка';
   if (n.indexOf('saved:') === 0) {
     const it = saved.find((x) => 'saved:' + x.id === n);
@@ -364,10 +340,7 @@ async function renderSites() {
 
 (async () => {
   loadSaved().then(renderSaved);
-  loadHidden().then((h) => {
-    renderPresets(h);
-    updateRestoreBtn(h);
-  });
+  loadHidden().then(renderPresets);
   renderSites();
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

@@ -151,32 +151,12 @@ h1 .ver {
 .grid .del:hover { color: #fff; border-color: #ff5d7a; background: #ff5d7a; }
 .grid .del-ph { width: 30px; flex: none; }
 
-.restore {
-  display: block;
-  width: 100%;
-  margin: 0 0 12px;
-  padding: 6px;
-  border: none;
-  background: none;
-  color: #7c8cff;
-  font-size: 12px;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.restore:hover { color: #9aa8ff; }
-
-/* --- рандом + карнавал --- */
-
-.btn-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  margin-bottom: 10px;
-}
+/* --- рандом --- */
 
 .random {
+  width: 100%;
   padding: 12px;
+  margin-bottom: 10px;
   border: none;
   border-radius: 10px;
   background: linear-gradient(90deg, #ff3d81, #7c5cff, #00c2ff);
@@ -189,21 +169,6 @@ h1 .ver {
 
 .random:hover { filter: brightness(1.15); }
 .random:active { transform: scale(.98); }
-
-.carnival {
-  padding: 12px 16px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(90deg, #ff8a00, #e52e71);
-  color: #fff;
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  transition: filter .15s;
-}
-
-.carnival:hover { filter: brightness(1.15); }
-.carnival:active { transform: scale(.98); }
 
 /* --- сохранение и импорт --- */
 

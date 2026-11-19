@@ -9,12 +9,18 @@
   let hostCfg = null;
   let autoEnabled = false;
   let explicitReset = false;
-  let carnivalTimer = null;
   let mediaFilter = 'auto';
+  let mediaObserver = null;
+  let mediaScanTimer = null;
 
-  // медиа-элементы и всё внутри плееров не закрашиваем фоном — иначе видео блочится
+  // Защита медиа-зон от заливки. ДВА отдельных правила:
+  // первое — без :has(), работает на любом Chromium (атрибут ставит JS ниже);
+  // второе — дополнительный слой для современных движков.
+  // Нельзя объединять в одно: при неподдержке :has() умрёт всё правило целиком.
   const MEDIA_EXEMPT =
-    'img,video,picture,canvas,svg,iframe,embed,object,' +
+    '[data-cvet-media],[data-cvet-media] *,' +
+    'img,video,picture,canvas,svg,iframe,embed,object' +
+    '{background-color:transparent !important}\n' +
     '*:has(video),*:has(video) *,' +
     '*:has(iframe),*:has(iframe) *,' +
     '*:has(canvas),*:has(canvas) *' +
@@ -57,6 +63,7 @@
     const mf = MEDIA_FILTERS[mediaFilter];
     if (mf) css += MEDIA_EL + '{filter:' + mf + ' !important}\n';
     else if (r.imgFilter) css += 'img,video,picture,canvas,svg,iframe{filter:' + r.imgFilter + ' !important}\n';
+
     if (r.htmlFontSize) css += 'html{font-size:' + r.htmlFontSize + ' !important}\n';
 
     const fd = [];
@@ -76,15 +83,54 @@
     if (r.textTransform) css += '*{text-transform:' + r.textTransform + ' !important}\n';
     if (r.borderRadius) css += '*{border-radius:' + r.borderRadius + ' !important}\n';
     if (r.extraCss) css += r.extraCss + '\n';
-    // защита медиа-зон — в самом конце, поверх всех заливок
+    // защита медиа-зон — только когда стиль заливает фон
     if (r.bg) css += MEDIA_EXEMPT;
     return css;
+  }
+
+  // --- маркировка плееров: JS-слой защиты, не зависит от поддержки :has() ---
+
+  function markMediaRoots() {
+    if (!document.body) return;
+    document.querySelectorAll('video, canvas, object, embed, iframe').forEach((el) => {
+      if (el.closest('[data-cvet-media]')) return;
+      // поднимаемся от видео вверх, пока контейнер похож на плеер
+      // (класс/id содержит player, video, media и т.п.) — так захватываем оверлеи
+      let node = el.parentElement;
+      let last = node;
+      let levels = 0;
+      while (node && node !== document.body && levels < 8) {
+        last = node;
+        const cls = (typeof node.className === 'string' ? node.className : '') + ' ' + (node.id || '');
+        if (!/(player|video|media|embed|stream|carousel|shorts|reel)/i.test(cls)) break;
+        node = node.parentElement;
+        levels++;
+      }
+      if (last) last.setAttribute('data-cvet-media', '');
+    });
+  }
+
+  function scheduleMediaScan() {
+    clearTimeout(mediaScanTimer);
+    mediaScanTimer = setTimeout(markMediaRoots, 300);
+  }
+
+  function ensureMediaWatch(on) {
+    if (on && !mediaObserver) {
+      mediaObserver = new MutationObserver(scheduleMediaScan);
+      mediaObserver.observe(document.documentElement, { childList: true, subtree: true });
+      markMediaRoots();
+    } else if (!on && mediaObserver) {
+      mediaObserver.disconnect();
+      mediaObserver = null;
+    }
   }
 
   function applyCfg(cfg) {
     try {
       getSheet().replaceSync(buildCss(cfg));
     } catch (e) { /* ignore */ }
+    ensureMediaWatch(!!(cfg && cfg.rules && cfg.rules.bg));
   }
 
   // --- авто день/ночь ---
@@ -102,36 +148,14 @@
     applyCfg(autoCfg());
   }
 
-  // --- карнавал ---
-
-  function startCarnival() {
-    applyCfg(CVET.randomCfg());
-    if (!carnivalTimer) {
-      carnivalTimer = setInterval(() => applyCfg(CVET.randomCfg()), 5000);
-    }
-  }
-
-  function stopCarnival() {
-    if (carnivalTimer) {
-      clearInterval(carnivalTimer);
-      carnivalTimer = null;
-    }
-  }
-
   // --- сообщения от попапа и хоткеев ---
 
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (!msg) return;
     if (msg.type === 'apply') {
       hostCfg = msg.cfg || null;
-      if (hostCfg && hostCfg.name === 'carnival') {
-        explicitReset = false;
-        startCarnival();
-      } else {
-        stopCarnival();
-        explicitReset = !hostCfg;
-        applyCfg(hostCfg);
-      }
+      explicitReset = !hostCfg;
+      applyCfg(hostCfg);
       sendResponse({ ok: true });
     } else if (msg.type === 'setAuto') {
       autoEnabled = !!msg.enabled;
@@ -144,15 +168,9 @@
       sendResponse({ ok: true });
     } else if (msg.type === 'setMedia') {
       mediaFilter = typeof msg.value === 'string' && MEDIA_FILTERS[msg.value] ? msg.value : 'auto';
-      if (carnivalTimer) {
-        // карнавал сам подхватит новый фильтр на следующем тике
-      } else if (hostCfg && hostCfg.name !== 'carnival') {
-        applyCfg(hostCfg);
-      } else if (autoEnabled) {
-        applyCfg(autoCfg());
-      } else {
-        applyCfg(null);
-      }
+      if (hostCfg) applyCfg(hostCfg);
+      else if (autoEnabled) applyCfg(autoCfg());
+      else applyCfg(null);
       sendResponse({ ok: true });
     }
   });
@@ -165,12 +183,8 @@
     const s = res.settings || {};
     autoEnabled = !!s.autoDayNight;
     mediaFilter = s.mediaFilter || 'auto';
-    if (hostCfg) {
-      if (hostCfg.name === 'carnival') startCarnival();
-      else applyCfg(hostCfg);
-    } else if (autoEnabled) {
-      applyCfg(autoCfg());
-    }
+    if (hostCfg) applyCfg(hostCfg);
+    else if (autoEnabled) applyCfg(autoCfg());
   }).catch(() => {});
 
   // раз в минуту перепроверяем авто день/ночь
