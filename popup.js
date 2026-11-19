@@ -4,6 +4,7 @@ const modesEl = document.getElementById('modes');
 const savedEl = document.getElementById('saved');
 const savedListEl = document.getElementById('savedList');
 const saveNameEl = document.getElementById('saveName');
+const restoreEl = document.getElementById('restorePresets');
 
 let currentCfg = null;
 
@@ -117,15 +118,64 @@ MODES.forEach((m) => {
   modesEl.appendChild(b);
 });
 
-PRESETS.forEach((p) => {
-  const b = document.createElement('button');
-  b.dataset.id = p.id;
-  b.innerHTML = '<span class="sw" style="background:' + p.swatch + '"></span>' + p.label;
-  b.addEventListener('click', () => {
-    applyCfg(p.rules ? { name: p.id, rules: p.rules } : null, p.rules ? 'Применено: ' + p.label : 'Сброшено');
-    markActive(p.id);
+function loadHidden() {
+  return chrome.storage.local.get('hiddenPresets').then((r) => r.hiddenPresets || []);
+}
+
+function updateRestoreBtn(hidden) {
+  restoreEl.classList.toggle('hidden', !hidden.length);
+  restoreEl.textContent = 'Восстановить системные пресеты (' + hidden.length + ')';
+}
+
+function renderPresets(hidden) {
+  gridEl.textContent = '';
+  PRESETS.forEach((p) => {
+    if (hidden.indexOf(p.id) !== -1) return;
+    const row = document.createElement('div');
+    row.className = 'preset-item';
+
+    const b = document.createElement('button');
+    b.dataset.id = p.id;
+    b.innerHTML = '<span class="sw" style="background:' + p.swatch + '"></span>' + p.label;
+    b.addEventListener('click', () => {
+      applyCfg(p.rules ? { name: p.id, rules: p.rules } : null, p.rules ? 'Применено: ' + p.label : 'Сброшено');
+      markActive(p.id);
+    });
+    row.appendChild(b);
+
+    if (p.id !== 'reset') {
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.title = 'Удалить пресет';
+      del.textContent = '✕';
+      del.addEventListener('click', async () => {
+        const list = await loadHidden();
+        if (list.indexOf(p.id) === -1) list.push(p.id);
+        await chrome.storage.local.set({ hiddenPresets: list });
+        renderPresets(list);
+        updateRestoreBtn(list);
+        statusEl.textContent = 'Пресет удалён: ' + p.label;
+      });
+      row.appendChild(del);
+    } else {
+      const ph = document.createElement('span');
+      ph.className = 'del-ph';
+      row.appendChild(ph);
+    }
+    gridEl.appendChild(row);
   });
-  gridEl.appendChild(b);
+}
+
+restoreEl.addEventListener('click', async () => {
+  await chrome.storage.local.set({ hiddenPresets: [] });
+  renderPresets([]);
+  updateRestoreBtn([]);
+  statusEl.textContent = 'Все системные пресеты восстановлены';
+});
+
+loadHidden().then((h) => {
+  renderPresets(h);
+  updateRestoreBtn(h);
 });
 
 document.getElementById('random').addEventListener('click', () => {
